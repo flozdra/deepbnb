@@ -25,6 +25,7 @@ sqs.listQueues(
     else {
       predictQueueUrl = data.QueueUrls.find((q) => q.toLowerCase().includes('predict'))
       resultQueueUrl = data.QueueUrls.find((q) => q.toLowerCase().includes('result'))
+      console.log('Successfully found AWS queues')
     }
   }
 )
@@ -34,7 +35,10 @@ const s3 = new AWS.S3()
 s3.listBuckets(function (err, data) {
   if (err) console.log(err, err.stack)
   // an error occurred
-  else bucketName = data.Buckets[0].Name
+  else {
+    bucketName = data.Buckets[0].Name
+    console.log('Successfully found AWS bucket')
+  }
 })
 
 let client = null
@@ -154,14 +158,63 @@ app.get('/housing', async (req, res) => {
   }
 })
 
-app.post('/predict', async (req, res) => {
+app.post('/predict', (req, res) => {
   const filename = uuid.v4() + '.csv'
   console.log(filename)
 
   const rows = [
     {
-      title: 'Blabla',
-      price: 40,
+      'title': 'Maison chez Kamil à Dunières',
+      // 'latitude': 'latitude',
+      // 'longitude': 'longitude',
+      'max_people_count': 4,
+      'bedroom_count': 4,
+      'property_type': 'Maison',
+      'housing_type': 'Logement entier',
+      'kitchen': 1,
+      'internet': 1,
+      'television': 1,
+      'commodities': 1,
+      'shampooing': 1,
+      'heating': 1,
+      'air_conditioning': 0,
+      'washing_machine': 1,
+      'dryer': 1,
+      'parking': 0,
+      'wifi': 1,
+      'tv_decoder': 1,
+      'breakfast': 0,
+      'pets_allowed': 1,
+      'for_kids': 0,
+      'adapted_for_events': 0,
+      'smoking': 0,
+      'accessibility': 1,
+      'elevator': 0,
+      'fireplace': 0,
+      'intercom': 0,
+      'doorman': 0,
+      'swimming_pool': 0,
+      'jacuzzi': 0,
+      'gym': 0,
+      '24_hours_entry-24': 0,
+      'hangers': 1,
+      'iron': 1,
+      'hair_dryer': 1,
+      'workspace': 1,
+      'smoke_detector': 1,
+      'carbon_monoxide_detector': 0,
+      'rescue_kit': 0,
+      'safety_sheet': 0,
+      'extinguisher': 0,
+      'bedroom_lock': 0,
+      'discount_week': 0,
+      'discount_mounth': 0,
+      'additional_traveler_cost': 0,
+      'cleaning_cost': 0,
+      'deposit': 200,
+      'cancel_conditions': 'Flexibles',
+      'description': 'Très belle maison chez Kamil à dunières dans la campagne',
+      'minimum_stay': 1,
     },
   ]
 
