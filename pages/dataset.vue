@@ -21,10 +21,10 @@
     <div v-else>
       <v-row>
         <v-col cols="12" class="text-h5 font-weight-medium pb-0">Dataset</v-col>
-        <v-col v-for="(h, i) of housing.slice(0, housingShowedCount)" cols="6" :key="i">
+        <v-col v-for="(h, i) of housing.slice(0, housingShowedCount)" :key="i" cols="6">
           <v-card class="elevation-0" outlined>
-            <v-card-title class="py-2 text-subtitle-2">
-              <span>{{ h.title }}</span>
+            <v-card-title class="py-2 text-subtitle-2 text-truncate">
+              <span class="text-truncate">{{ h.title }}</span>
               <v-spacer></v-spacer>
               <span>
                 {{
@@ -87,7 +87,7 @@ export default {
     }
   },
   async fetch() {
-    this.housing = await fetch('http://localhost:3000/mongodb/housing').then((res) => res.json())
+    this.housing = await fetch('http://localhost:3000/mongodb/dataset').then((res) => res.json())
   },
 }
 </script>

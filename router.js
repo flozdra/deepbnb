@@ -4,6 +4,7 @@ import Router from 'vue-router'
 import WelcomePage from '@/pages/welcome'
 import ModelsPage from '@/pages/models'
 import DatasetPage from '@/pages/dataset'
+import PredictPage from '@/pages/predict'
 
 Vue.use(Router)
 
@@ -25,6 +26,11 @@ export function createRouter() {
         path: '/dataset',
         component: DatasetPage,
         name: 'dataset-page',
+      },
+      {
+        path: '/predict',
+        component: PredictPage,
+        name: 'predict-page',
       },
     ],
   })

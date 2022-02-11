@@ -140,17 +140,13 @@ app.get('/user', async (req, res) => {
   }
 })
 
-app.get('/housing', async (req, res) => {
+app.get('/dataset', async (req, res) => {
   try {
     await checkConnection()
 
-    const housing = await db.collection('housing').find().toArray()
+    const dataset = await db.collection('dataset').find().toArray()
 
-    // const housingResponse = []
-    // for (const h of housing) {
-    //   housingResponse.push(formatHousing(h))
-    // }
-    return res.json(housing)
+    return res.json(dataset)
   } catch (e) {
     // eslint-disable-next-line no-console
     console.log(e)
@@ -158,65 +154,11 @@ app.get('/housing', async (req, res) => {
   }
 })
 
-app.post('/predict', (req, res) => {
+app.post('/predict', async (req, res) => {
   const filename = uuid.v4() + '.csv'
   console.log(filename)
 
-  const rows = [
-    {
-      'title': 'Maison chez Kamil à Dunières',
-      // 'latitude': 'latitude',
-      // 'longitude': 'longitude',
-      'max_people_count': 4,
-      'bedroom_count': 4,
-      'property_type': 'Maison',
-      'housing_type': 'Logement entier',
-      'kitchen': 1,
-      'internet': 1,
-      'television': 1,
-      'commodities': 1,
-      'shampooing': 1,
-      'heating': 1,
-      'air_conditioning': 0,
-      'washing_machine': 1,
-      'dryer': 1,
-      'parking': 0,
-      'wifi': 1,
-      'tv_decoder': 1,
-      'breakfast': 0,
-      'pets_allowed': 1,
-      'for_kids': 0,
-      'adapted_for_events': 0,
-      'smoking': 0,
-      'accessibility': 1,
-      'elevator': 0,
-      'fireplace': 0,
-      'intercom': 0,
-      'doorman': 0,
-      'swimming_pool': 0,
-      'jacuzzi': 0,
-      'gym': 0,
-      '24_hours_entry-24': 0,
-      'hangers': 1,
-      'iron': 1,
-      'hair_dryer': 1,
-      'workspace': 1,
-      'smoke_detector': 1,
-      'carbon_monoxide_detector': 0,
-      'rescue_kit': 0,
-      'safety_sheet': 0,
-      'extinguisher': 0,
-      'bedroom_lock': 0,
-      'discount_week': 0,
-      'discount_mounth': 0,
-      'additional_traveler_cost': 0,
-      'cleaning_cost': 0,
-      'deposit': 200,
-      'cancel_conditions': 'Flexibles',
-      'description': 'Très belle maison chez Kamil à dunières dans la campagne',
-      'minimum_stay': 1,
-    },
-  ]
+  const rows = [req.body.place]
 
   const options = {
     prependHeader: true,
@@ -229,13 +171,14 @@ app.post('/predict', (req, res) => {
     trimFieldValues: true,
     checkSchemaDifferences: false,
   }
-  json2csv(
+  await json2csv(
     rows,
-    function (err, csv) {
+    async function (err, csv) {
       if (err) {
         console.log('Error in csv file generation', err)
+        return serverError(res, err)
       } else {
-        console.log('csv file is', csv)
+        console.log(csv)
 
         const params = {
           Bucket: bucketName,
@@ -243,11 +186,12 @@ app.post('/predict', (req, res) => {
           Body: csv,
           ContentType: 'application/octet-stream',
         }
-        s3.putObject(params, function (err, data) {
+        await s3.putObject(params, async function (err, data) {
           if (err) {
             console.log('Error at uploadCSVFileOnS3Bucket function', err)
+            return serverError(res, err)
           } else {
-            console.log('File uploaded Successfully')
+            console.log('File uploaded')
             console.log(data)
 
             const params = {
@@ -260,16 +204,51 @@ app.post('/predict', (req, res) => {
                 },
               },
               MessageBody: 'Prediction',
-              QueueUrl: resultQueueUrl,
+              QueueUrl: predictQueueUrl,
             }
 
-            sqs.sendMessage(params, function (err, data) {
+            await sqs.sendMessage(params, async function (err, data) {
               if (err) {
-                console.log('Error', err)
+                console.log('Error sending message to queue', err)
+                return serverError(res, err)
               } else {
-                console.log('Success', data.MessageId)
-                return res.json()
+                console.log('Message sent to queue', data.MessageId)
+                //
+                // let iteration = 0
+                // let done = false
+                //
+                // while (!done && iteration < 15) {
+                const params = {
+                  QueueUrl: resultQueueUrl,
+                  AttributeNames: ['All'],
+                  MaxNumberOfMessages: 10,
+                  MessageAttributeNames: ['Result'],
+                  WaitTimeSeconds: 20,
+                }
+                const messages = await sqs.receiveMessage(params).promise()
+                if (!messages) {
+                  console.log('Error waiting message queue')
+                  return serverError(res, err)
+                } else {
+                  for (const message of messages.Messages) {
+                    console.log(message)
+                    console.log(message.Body)
+                    await sqs
+                      .deleteMessage({
+                        QueueUrl: resultQueueUrl,
+                        ReceiptHandle: message.ReceiptHandle,
+                      })
+                      .promise()
+                  }
+                  return res.json({ message: 'ok' })
+                }
+                // iteration++
+                // console.log('Iteration ++')
               }
+              // if (iteration === 15) {
+              //   return serverError(res, 'Error timeout')
+              // }
+              // }
             })
           }
         })

@@ -65,7 +65,7 @@
         </v-col>
         <v-col cols="3" class="d-flex flex-column justify-end">
           <v-btn text color="primary" class="my-3">See predictions</v-btn>
-          <v-btn color="primary" dark depressed @click="predict">Try an estimate</v-btn>
+          <v-btn color="primary" dark depressed to="/predict">Try an estimate</v-btn>
         </v-col>
       </v-row>
     </div>
@@ -78,7 +78,6 @@ export default {
   layout: 'default',
   data() {
     return {
-      housing: [],
       models: [
         {
           id: 'rtf',
@@ -104,7 +103,7 @@ export default {
     }
   },
   async fetch() {
-    this.housing = await fetch('http://localhost:3000/mongodb/housing').then((res) => res.json())
+    // this.housing = await fetch('http://localhost:3000/mongodb/housing').then((res) => res.json())
   },
   methods: {
     predict() {
