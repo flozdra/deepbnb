@@ -30,7 +30,7 @@
               <div class="d-flex flex-column">
                 <span class="text--secondary text-caption">Score</span>
                 <span class="font-weight-medium">
-                  {{ model.info.score.toFixed(1) + '%' }}
+                  {{ (model.score * 100).toFixed(2) + '%' }}
                 </span>
               </div>
             </div>
@@ -39,7 +39,7 @@
               <div class="d-flex flex-column">
                 <span class="text--secondary text-caption">Average error</span>
                 <span class="font-weight-medium">
-                  {{ model.info.averageError.toFixed(2) + '€' }}
+                  {{ model.average_error.toFixed(2) + '€' }}
                 </span>
               </div>
             </div>
@@ -48,7 +48,7 @@
               <div class="d-flex flex-column">
                 <span class="text--secondary text-caption">Error count</span>
                 <span class="font-weight-medium">
-                  {{ model.info.nbError }}
+                  {{ model.error_count }}
                 </span>
               </div>
             </div>
@@ -57,7 +57,7 @@
               <div class="d-flex flex-column">
                 <span class="text--secondary text-caption">Train dataset size</span>
                 <span class="font-weight-medium">
-                  {{ model.info.trainSize }}
+                  {{ model.test_dataset_size }}
                 </span>
               </div>
             </div>
@@ -78,32 +78,11 @@ export default {
   layout: 'default',
   data() {
     return {
-      models: [
-        {
-          id: 'rtf',
-          name: 'Random tree forest',
-          info: {
-            score: 82,
-            averageError: 12,
-            nbError: 84,
-            trainSize: 3462,
-          },
-        },
-        {
-          id: 'xgb',
-          name: 'XGBoost',
-          info: {
-            score: 85,
-            averageError: 9,
-            nbError: 94,
-            trainSize: 3462,
-          },
-        },
-      ],
+      models: [],
     }
   },
   async fetch() {
-    // this.housing = await fetch('http://localhost:3000/mongodb/housing').then((res) => res.json())
+    this.models = await fetch('http://localhost:3000/mongodb/models').then((res) => res.json())
   },
   methods: {
     predict() {

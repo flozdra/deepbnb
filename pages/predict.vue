@@ -8,19 +8,34 @@
         </p>
       </v-col>
     </v-row>
-    <v-row>
+    <v-row class="mb-3">
       <v-col cols="12" class="text-h5 font-weight-medium">Try an estimate</v-col>
     </v-row>
-    <v-form>
+    <v-form :disabled="loading || error">
       <v-row>
         <v-col
           v-for="(field, i) of Object.keys(place)"
           :key="i"
-          :cols="typeof place[field] === 'string' ? 12 : 4"
+          :cols="
+            place[field] === '' || (typeof place[field] === 'string' && isNaN(place[field]))
+              ? 12
+              : 4
+          "
           class="align-center"
         >
+          <v-switch
+            v-if="typeof place[field] === 'boolean'"
+            v-model="place[field]"
+            dense
+            hide-details
+            class="mt-1"
+          >
+            <template #label>
+              <span class="text-truncate">{{ sentenceCase(field) }}</span>
+            </template>
+          </v-switch>
           <v-text-field
-            v-if="typeof place[field] === 'number' || Number.isInteger(place[field])"
+            v-else-if="!isNaN(place[field]) && place[field] !== ''"
             v-model="place[field]"
             type="number"
             :label="sentenceCase(field)"
@@ -36,25 +51,39 @@
             dense
             hide-details
           ></v-text-field>
-          <v-switch
-            v-else-if="typeof place[field] === 'boolean'"
-            v-model="place[field]"
-            dense
-            hide-details
-            class="mt-1"
-          >
-            <template #label>
-              <span class="text-truncate">{{ sentenceCase(field) }}</span>
-            </template>
-          </v-switch>
         </v-col>
       </v-row>
       <v-row class="mt-6">
         <v-col>
-          <v-btn color="primary" @click="predict">Estimate</v-btn>
+          <v-btn color="primary" :loading="loading" @click="predict">Estimate</v-btn>
         </v-col>
       </v-row>
     </v-form>
+
+    <v-row v-if="done" class="mt-6">
+      <v-col>
+        <p class="text-subtitle-2">
+          <span>Estimation for XGBoost :</span>
+          <span class="font-weight-bold">
+            {{
+              new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(
+                prediction.regression_predicted_price.toFixed(2)
+              )
+            }}
+          </span>
+        </p>
+        <p class="text-subtitle-2">
+          <span>Estimation for Random tree forest :</span>
+          <span class="font-weight-bold">
+            {{
+              new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(
+                prediction.rf_predicted_price.toFixed(2)
+              )
+            }}
+          </span>
+        </p>
+      </v-col>
+    </v-row>
   </v-container>
 </template>
 
@@ -66,12 +95,13 @@ export default {
     return {
       loading: false,
       error: false,
+      done: false,
       place: {
         'title': '',
         'description': '',
         // latitude: 40,
         // longitude: 5,
-        'max_people_count': 0,
+        'max_people_count': '0',
         'bedroom_count': 0,
         'housing_type': 'Maison',
         'property_type': 'Logement entier',
@@ -119,6 +149,7 @@ export default {
         'minimum_stay': 0,
         'cancel_conditions': 'Flexibles',
       },
+      prediction: {},
     }
   },
   async fetch() {
@@ -142,7 +173,8 @@ export default {
         const response = await this.$axios.post('/mongodb/predict', {
           place: dataPlace,
         })
-        console.log(response)
+        this.prediction = response.data
+        this.done = true
       } catch (e) {
         console.log(e)
         this.error = true

@@ -7,7 +7,7 @@ const { json2csv } = require('json-2-csv')
 const jwt = require('jsonwebtoken')
 const app = require('express')()
 
-const { MongoClient } = require('mongodb')
+const { MongoClient, ObjectId } = require('mongodb')
 
 AWS.config.update({ region: 'us-east-1' })
 
@@ -50,6 +50,8 @@ async function connectDb() {
     useNewUrlParser: true,
     useUnifiedTopology: true,
   })
+  console.log(uri)
+
   console.log('connecting...')
   await client.connect()
   console.log('connected!')
@@ -61,6 +63,8 @@ async function checkConnection() {
   if (client?.topology?.isConnected()) return true
   await connectDb()
 }
+
+connectDb()
 
 function verifyToken(req) {
   const decoded = jwt.verify(req.cookies['auth._token'], process.env.JWT_SECRET_KEY)
@@ -140,11 +144,25 @@ app.get('/user', async (req, res) => {
   }
 })
 
+app.get('/models', async (req, res) => {
+  try {
+    await checkConnection()
+
+    const models = await db.collection('models').find().toArray()
+
+    return res.json(models)
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.log(e)
+    return res.status(500).json({ message: 'Internal server error' })
+  }
+})
+
 app.get('/dataset', async (req, res) => {
   try {
     await checkConnection()
 
-    const dataset = await db.collection('dataset').find().toArray()
+    const dataset = await db.collection('dataset').find().limit(100).toArray()
 
     return res.json(dataset)
   } catch (e) {
@@ -156,7 +174,6 @@ app.get('/dataset', async (req, res) => {
 
 app.post('/predict', async (req, res) => {
   const filename = uuid.v4() + '.csv'
-  console.log(filename)
 
   const rows = [req.body.place]
 
@@ -213,42 +230,54 @@ app.post('/predict', async (req, res) => {
                 return serverError(res, err)
               } else {
                 console.log('Message sent to queue', data.MessageId)
-                //
-                // let iteration = 0
-                // let done = false
-                //
-                // while (!done && iteration < 15) {
-                const params = {
-                  QueueUrl: resultQueueUrl,
-                  AttributeNames: ['All'],
-                  MaxNumberOfMessages: 10,
-                  MessageAttributeNames: ['Result'],
-                  WaitTimeSeconds: 20,
-                }
-                const messages = await sqs.receiveMessage(params).promise()
-                if (!messages) {
-                  console.log('Error waiting message queue')
-                  return serverError(res, err)
-                } else {
-                  for (const message of messages.Messages) {
-                    console.log(message)
-                    console.log(message.Body)
+
+                let iteration = 0
+                let done = false
+
+                while (iteration < 3) {
+                  const params = {
+                    QueueUrl: resultQueueUrl,
+                    AttributeNames: ['All'],
+                    MaxNumberOfMessages: 10,
+                    MessageAttributeNames: ['Result'],
+                    WaitTimeSeconds: 20,
+                  }
+                  console.log('Waiting for message in queue...')
+                  const messages = await sqs.receiveMessage(params).promise()
+                  if (!messages) {
+                    iteration++
+                  } else {
+                    console.log(typeof messages.Messages)
+                    const uid = JSON.parse(
+                      messages.Messages[0].MessageAttributes.Result.StringValue
+                    )[0]
+                    // for (const message of messages.Messages) {
+                    //   console.log(message)
+                    //   console.log(message.Body)
                     await sqs
                       .deleteMessage({
                         QueueUrl: resultQueueUrl,
-                        ReceiptHandle: message.ReceiptHandle,
+                        ReceiptHandle: messages.Messages[0].ReceiptHandle,
                       })
                       .promise()
+                    // }
+                    console.log(uid)
+                    const prediction = await db
+                      .collection('predictions')
+                      .find({ _id: new ObjectId(uid) })
+                      .limit(1)
+                      .toArray()
+
+                    done = true
+                    return res.json(prediction[0])
                   }
-                  return res.json({ message: 'ok' })
                 }
-                // iteration++
-                // console.log('Iteration ++')
+
+                if (!done) {
+                  console.log('Error waiting message queue')
+                  return serverError(res, err)
+                }
               }
-              // if (iteration === 15) {
-              //   return serverError(res, 'Error timeout')
-              // }
-              // }
             })
           }
         })
